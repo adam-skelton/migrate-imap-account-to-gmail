@@ -1,16 +1,15 @@
 migrate-imap-account-to-gmail
 =============================
 
-Python script that migrates mail from an IMAP server account to a GMail
-account. Preserves source account folder structure and saves mail under a
-configurable root folder in target account (set `TARGET['ROOT_FOLDER']`).
+Python script that migrates mail from an IMAP server account to a Gmail
+account. Preserves source account folder structure and saves mail under the root folder.
 Folders can be skipped by listing them in `SOURCE['IGNORE_FOLDERS']`.
 Tracks migration in database so that migration will continue from the last seen
 message in case of interruption or when new mail needs to be synchronized from
 the source account.
 
-Tested with Dovecot to GMail and GMail to GMail email migration.
-Should also work with a non-GMail target account.
+Tested with Exchange to Gmail and Gmail account and succesfully transferred 100k+ emails.
+Should also work with a non-Gmail target account.
 
 Usage
 -----
@@ -36,8 +35,7 @@ Usage
             'HOST': 'imap.gmail.com',
             'USERNAME': 'user@gmail.com',
             'PASSWORD': 'password',
-            'SSL': True,
-            'ROOT_FOLDER': 'example-com-archive'
+            'SSL': True
         }
         EOF
 
@@ -48,3 +46,9 @@ Usage
 It may take a while, here's sample output from a live run:
 
     Synchronization of 12571 messages finished, took 6:44:35.101650
+
+Changes
+-----
+- Removed configurable folder so all . Emails are merged straight away into folders in the destation account if they already exist (automatically labelled in the case of Gmail)
+
+- 
