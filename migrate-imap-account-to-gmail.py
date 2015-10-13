@@ -3,8 +3,7 @@
 """
 Script that copies mail from one IMAP account to another.
 
-Has been used to migrate more than 10 000 messages from a Dovecot server to
-GMail.
+Has been used to migrate more than 100k messages from an Exchange server to Gmail.
 
 `pip install https://bitbucket.org/mrts/imapclient/get/default.zip six` and
 create `conf.py` as follows to use it:
@@ -14,9 +13,7 @@ SOURCE = {
     'USERNAME': 'user',
     'PASSWORD': 'password',
     'SSL': True,
-    'IGNORE_FOLDERS': ('[Gmail]',
-                       '[Gmail]/Trash', '[Gmail]/Spam',
-                       '[Gmail]/Starred', '[Gmail]/Important')
+    'IGNORE_FOLDERS': ('[Gmail]',                        '[Gmail]/Trash', '[Gmail]/Spam', '[Gmail]/Starred', '[Gmail]/Important')
 }
 
 TARGET = {
@@ -45,16 +42,6 @@ def main():
     source_account = Source(conf.SOURCE)
     target_account = Target(conf.TARGET, source_account.folder_separator())
 
-    yes = input("Copy all mail\n"
-            "from account\n"
-            "\t%s\n"
-            "to account\n"
-            "\t%s\n[yes/no]? " %
-            (source_account, target_account))
-    if yes != "yes":
-        print("Didn't enter 'yes', exiting")
-        return
-
     db = Database()
     db.create_tables()
 
@@ -76,13 +63,17 @@ def main():
                 print("\t\tskipping message '%s', already uploaded to '%s'" %
                         (message_id, target_folder))
                 continue
-            msg, flags, size, date = source_account.fetch_message(message_id)
-            print("\t\tuploading message '%s' of %s bytes to '%s'" %
+            try:
+                msg, flags, size, date = source_account.fetch_message(message_id)
+                print("\t\tuploading message '%s' of %s bytes to '%s'" %
                     (message_id, size, target_folder))
-            target_account.append(target_folder, msg, flags, date)
-            db.mark_message_seen(target_folder, message_id)
-            total_messages += 1
-            total_bytes += size
+                target_account.append(target_folder, msg, flags, date)
+                db.mark_message_seen(target_folder, message_id)
+                total_messages += 1
+                total_bytes += size
+            except Exception, e:
+                print("(%s) Message could not be copied: %s" % (time.strftime('%H:%M %p'), e))
+                continue          
         print("\t'%s' done, took %s seconds, %d total messages uploaded" %
                 (folder, time.time() - folder_sync_start, total_messages))
 
@@ -123,8 +114,7 @@ class Source(Base):
 
     def fetch_message(self, message_id):
         response = self.server.fetch((message_id,),
-                ['FLAGS', 'RFC822', 'RFC822.SIZE', 'INTERNALDATE'],
-                do_decode=False)
+                ['FLAGS', 'RFC822', 'RFC822.SIZE', 'INTERNALDATE'])
         assert len(response) == 1
         data = response[message_id]
         return (data['RFC822'], data['FLAGS'],
@@ -148,13 +138,12 @@ class Target(Base):
         if self.source_folder_separator != self.target_folder_separator:
             folder = folder.replace(self.source_folder_separator,
                     self.target_folder_separator)
-        folder = self.root_folder + self.target_folder_separator + folder
         if not self.server.folder_exists(folder):
             self.server.create_folder(folder)
         return folder
 
     def append(self, folder, message, flags, date):
-        self.server.append(folder, message, flags, date, do_encode=False)
+        self.server.append(folder, message, flags, date)
 
 
 class Database(object):
@@ -182,14 +171,23 @@ class Database(object):
     def close(self):
         self.connection.close()
 
-# Wrap sys.stdout into a StreamWriter to allow writing unicode in case of
-# redirection.
-# See http://stackoverflow.com/questions/4545661/unicodedecodeerror-when-redirecting-to-file
-import codecs
-import locale
 import sys
 
-sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
+class Tee(object):
+    def __init__(self, *files):
+        self.files = files
+    def write(self, obj):
+        for f in self.files:
+            f.write(obj)
+            f.flush() # If you want the output to be visible immediately
+    def flush(self) :
+        for f in self.files:
+            f.flush()
+
+f = open('out.txt', 'w')
+original = sys.stdout
+sys.stdout = Tee(sys.stdout, f)
+
 
 if __name__ == '__main__':
     main()

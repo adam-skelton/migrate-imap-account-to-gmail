@@ -46,9 +46,3 @@ Usage
 It may take a while, here's sample output from a live run:
 
     Synchronization of 12571 messages finished, took 6:44:35.101650
-
-Changes
------
-- Removed configurable folder so all . Emails are merged straight away into folders in the destation account if they already exist (automatically labelled in the case of Gmail)
-
-- 
